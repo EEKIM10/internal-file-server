@@ -22,6 +22,7 @@ setup(
         "uvicorn[standard]==0.18.2",
         "click==8.1.3",
         "python-pam==2.0.2",
+        "humanize==4.2.3"
     ],
     entry_points={"console_scripts": ["http-file-server = src.run:run_server"]},
 )
