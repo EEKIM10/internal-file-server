@@ -11,8 +11,18 @@ from pathlib import Path
 from pam import authenticate
 
 
-with open(Path(__file__) / ".." / "base.html") as base:
-    base_html = base.read()
+base_htm = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Index of {directory}</title>{style}
+</head>
+<body><h1>Files in {directory}:</h1>
+<table>{rows}</table>
+</body>
+</html>
+"""
 
 row_template = (
     "<tr><td><a href='{file_loc}' class='display-name'>{file_name}</a>{raw}</td>"
