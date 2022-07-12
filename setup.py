@@ -1,3 +1,4 @@
+#  Run: pipx install git+https://github.com/EEKIM10/internal-file-server
 import os
 
 from setuptools import setup
