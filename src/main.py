@@ -45,7 +45,7 @@ def escape(text: str):
 
 class FallbackStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope) -> Response:
-        # authorise(await basic(Request(scope)))
+        authorise(await basic(Request(scope)))
         try:
             return await super().get_response(path, scope)
         except starlette.exceptions.HTTPException:
@@ -80,6 +80,10 @@ basic = HTTPBasic(realm="PAM", description="PAM Login")
 
 
 def authorise(credentials: HTTPBasicCredentials = Depends(basic)):
+    print(
+        "Authorising username %r with password %r"
+        % (credentials.username, credentials.password[:2] + ("*" * (len(credentials.password) - 2)))
+    )
     okay = False
     try:
         okay = authenticate(
