@@ -1,14 +1,14 @@
 import asyncio
+import base64
 import os
 from datetime import datetime
-from typing import Optional, Union
 
 import starlette.exceptions
-import aiofiles
 from humanize import naturalsize
-from fastapi import FastAPI, HTTPException, Depends, Response
+from functools import partial
+from fastapi import FastAPI, HTTPException, Depends, Response, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pam import authenticate
@@ -43,15 +43,9 @@ def escape(text: str):
     return text.replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
 
 
-async def read_file(path: Path, mode: str = "rb", timeout: float = 60.0) -> Optional[Union[str, bytes]]:
-    # noinspection PyTypeChecker
-    async with aiofiles.open(file=path, mode=mode) as file:
-        content = await asyncio.wait_for(file.read(), timeout=timeout)
-    return content
-
-
 class FallbackStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope) -> Response:
+        # authorise(await basic(Request(scope)))
         try:
             return await super().get_response(path, scope)
         except starlette.exceptions.HTTPException:
@@ -74,6 +68,10 @@ class FallbackStaticFiles(StaticFiles):
                             raw=raw,
                         )
                     )
+            else:
+                if not _path.exists():
+                    raise HTTPException(404, "File '%s' does not exist." % _path)
+                return FileResponse(_path)
             new = base_html.format(directory=str(_path), rows="\n".join(rows), style=style)
             return HTMLResponse(new)
 
@@ -82,7 +80,6 @@ basic = HTTPBasic(realm="PAM", description="PAM Login")
 
 
 def authorise(credentials: HTTPBasicCredentials = Depends(basic)):
-    print(f"Authenticating with credentials: {credentials}...")
     okay = False
     try:
         okay = authenticate(
@@ -100,7 +97,7 @@ def authorise(credentials: HTTPBasicCredentials = Depends(basic)):
         else:
             raise HTTPException(501, "Password Authentication Unvailable.")
     if not okay:
-        raise HTTPException(401, "Invalid username or password", {"WWW-Authenticate": "Basic realm=PAM"})
+        raise HTTPException(401, headers={"WWW-Authenticate": "Basic realm=PAM"})
     return True
 
 
@@ -108,7 +105,7 @@ app = FastAPI(dependencies=[Depends(authorise)])
 
 
 @app.get("/_special/view_plain")
-def read_plain(path: str):
+async def read_plain(path: str):
     path = Path(path).resolve()
     if not path.exists():
         raise HTTPException(404, "file not found")
@@ -118,13 +115,11 @@ def read_plain(path: str):
         raise HTTPException(403, "directory is outside runtime scope")
 
     try:
-        contents = await read_file(path)
+        return FileResponse(path, media_type="text/plain")
     except PermissionError:
         raise HTTPException(403, "failed to read file")
     except asyncio.TimeoutError:
         raise HTTPException(504, "file took too long to read")
-    else:
-        return PlainTextResponse(contents.decode("utf-8", "backslashreplace"))
 
 
 app.mount("/", FallbackStaticFiles(directory=Path.cwd()))
