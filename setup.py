@@ -16,6 +16,7 @@ setup(
     author="nexy7574",
     author_email="",
     description="",
+    include_package_data=True,
     install_requires=[
         "fastapi==0.78.0",
         "aiofiles==0.8.0",
@@ -25,5 +26,8 @@ setup(
         "humanize==4.2.3",
         "six==1.16.0"
     ],
+    package_data={
+        "src": ["base.html"]
+    },
     entry_points={"console_scripts": ["http-file-server = src.run:run_server"]},
 )
