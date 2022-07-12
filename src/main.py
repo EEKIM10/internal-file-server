@@ -1,7 +1,10 @@
+import asyncio
 import os
 from datetime import datetime
+from typing import Optional, Union
 
 import starlette.exceptions
+import aiofiles
 from humanize import naturalsize
 from fastapi import FastAPI, HTTPException, Depends, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -38,6 +41,13 @@ style = (
 
 def escape(text: str):
     return text.replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
+
+
+async def read_file(path: Path, mode: str = "rb", timeout: float = 60.0) -> Optional[Union[str, bytes]]:
+    # noinspection PyTypeChecker
+    async with aiofiles.open(file=path, mode=mode) as file:
+        content = await asyncio.wait_for(file.read(), timeout=timeout)
+    return content
 
 
 class FallbackStaticFiles(StaticFiles):
@@ -108,10 +118,11 @@ def read_plain(path: str):
         raise HTTPException(403, "directory is outside runtime scope")
 
     try:
-        with path.open("rb") as file:
-            contents = file.read()
+        contents = await read_file(path)
     except PermissionError:
         raise HTTPException(403, "failed to read file")
+    except asyncio.TimeoutError:
+        raise HTTPException(504, "file took too long to read")
     else:
         return PlainTextResponse(contents.decode("utf-8", "backslashreplace"))
 
