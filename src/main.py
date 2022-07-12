@@ -11,7 +11,7 @@ from pathlib import Path
 from pam import authenticate
 
 
-base_htm = """
+base_html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
